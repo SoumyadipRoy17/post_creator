@@ -4,6 +4,7 @@ const postModel = require("./models/post");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const user = require("./models/user");
 
 const app = express();
 
@@ -54,13 +55,36 @@ app.post("/login", async (req, res) => {
     let token = jwt.sign({ email: email, userid: user._id }, "secret");
 
     res.cookie("token", token);
-    res.send("User logged in successfully");
+    res.redirect("/profile");
   });
 });
 
 app.get("/logout", (req, res) => {
   res.clearCookie("token");
   res.redirect("/login");
+});
+
+app.get("/profile", isLoggedIn, async (req, res) => {
+  let user = await userModel
+    .findOne({ email: req.user.email })
+    .populate("posts");
+
+  console.log(user);
+  res.render("profile", { user });
+});
+
+app.post("/post", isLoggedIn, async (req, res) => {
+  let user = await userModel.findOne({ email: req.user.email });
+  let { content } = req.body;
+  let post = await postModel.create({
+    content,
+    user: user._id,
+  });
+
+  user.posts.push(post._id);
+  await user.save();
+
+  res.redirect("/profile");
 });
 
 function isLoggedIn(req, res, next) {
